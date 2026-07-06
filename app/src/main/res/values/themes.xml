@@ -1,0 +1,10 @@
+<resources>
+    <style name="Theme.BagianBahasa" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/orange_600</item>
+        <item name="colorPrimaryDark">@color/black_900</item>
+        <item name="colorAccent">@color/orange_500</item>
+        <item name="android:windowBackground">@color/black_900</item>
+        <item name="android:statusBarColor">@color/black_900</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

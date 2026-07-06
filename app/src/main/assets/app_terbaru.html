@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Laporan Bagian Bahasa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --black-900:#0a0a0c; --black-800:#121215; --black-700:#1a1a1f; --black-600:#232329;
+  --orange-500:#ff7a1a; --orange-600:#ff5e00; --orange-glow:rgba(255,122,26,.35);
+  --glass-b:rgba(255,255,255,.06); --glass-border:rgba(255,255,255,.10);
+  --text-100:#f4f0ea; --text-400:#a9a6a3; --danger:#ff4d4d; --ok:#33d17a;
+  --excel-green:#107c41; --excel-green-dark:#0c5c30; --excel-grid:#d0d7de; --excel-header:#f3f2f1;
+  --radius:16px;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{height:100%;}
+body{
+  font-family:'Inter',sans-serif; background:var(--black-900); color:var(--text-100);
+  overflow:hidden; -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,.display{font-family:'Poppins',sans-serif;}
+::selection{background:var(--orange-500); color:#fff;}
+button{font-family:inherit; cursor:pointer; border:none; outline:none; -webkit-tap-highlight-color:transparent;}
+input,select{font-family:inherit; outline:none;}
+::-webkit-scrollbar{width:10px; height:10px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--black-600); border-radius:8px;}
+::-webkit-scrollbar-thumb:hover{background:var(--orange-600);}
+
+/* ---------- utility: ripple + press ---------- */
+.pressable{position:relative; overflow:hidden; transition:transform .12s ease, box-shadow .18s ease, background .18s ease;}
+.pressable:active{transform:scale(.96);}
+.ripple{position:absolute; border-radius:50%; background:rgba(255,255,255,.45); transform:scale(0); animation:rip .55s ease-out; pointer-events:none;}
+@keyframes rip{to{transform:scale(2.6); opacity:0;}}
+.fadein{animation:fadeIn .45s cubic-bezier(.16,1,.3,1) both;}
+.slideup{animation:slideUp .5s cubic-bezier(.16,1,.3,1) both;}
+@keyframes fadeIn{from{opacity:0;} to{opacity:1;}}
+@keyframes slideUp{from{opacity:0; transform:translateY(22px);} to{opacity:1; transform:translateY(0);}}
+@keyframes popIn{from{opacity:0; transform:scale(.92) translateY(10px);} to{opacity:1; transform:scale(1) translateY(0);}}
+.screen{position:fixed; inset:0; display:none;}
+.screen.active{display:block;}
+
+/* ================= LOADING ================= */
+#screen-loading{display:flex; align-items:center; justify-content:center; background:var(--black-900);}
+#screen-loading.active{display:flex;}
+.spinner{width:46px; height:46px; border-radius:50%; border:3px solid var(--black-600); border-top-color:var(--orange-500); animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ================= LOGIN ================= */
+#screen-login{
+  background:radial-gradient(circle at 20% 20%, #1c1408 0%, var(--black-900) 55%), var(--black-900);
+}
+.login-bg-mock{
+  position:absolute; inset:0; padding:40px; filter:blur(14px) saturate(1.2); opacity:.55; transform:scale(1.04);
+  pointer-events:none;
+}
+.mock-top{display:flex; justify-content:space-between; align-items:center; margin-bottom:26px;}
+.mock-pill{height:14px; border-radius:8px; background:linear-gradient(90deg,var(--orange-500),var(--orange-600)); }
+.mock-card{background:var(--glass-b); border:1px solid var(--glass-border); border-radius:20px; padding:22px; margin-bottom:16px;}
+.mock-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:16px;}
+.mock-line{height:10px; border-radius:6px; background:rgba(255,255,255,.12); margin-bottom:10px;}
+.mock-line.short{width:60%;}
+.mock-avatar{width:40px; height:40px; border-radius:50%; background:linear-gradient(135deg,var(--orange-500),#ffb066);}
+
+.login-wrap{position:relative; z-index:2; height:100%; display:flex; align-items:center; justify-content:center;}
+.login-card{
+  width:min(360px,88vw); background:rgba(18,18,21,.72); backdrop-filter:blur(22px);
+  border:1px solid var(--glass-border); border-radius:20px; padding:34px 28px 28px;
+  box-shadow:0 30px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(255,122,26,.06);
+  animation:popIn .55s cubic-bezier(.16,1,.3,1) both;
+}
+.login-logo{width:52px; height:52px; border-radius:14px; margin:0 auto 16px; display:flex; align-items:center; justify-content:center;
+  background:linear-gradient(135deg,var(--orange-500),var(--orange-600)); box-shadow:0 8px 24px var(--orange-glow); font-size:22px; font-weight:800;}
+.login-title{text-align:center; font-size:16px; font-weight:700; letter-spacing:.3px; margin-bottom:2px;}
+.login-sub{text-align:center; font-size:12px; color:var(--text-400); margin-bottom:22px;}
+.field{margin-bottom:14px;}
+.field label{display:block; font-size:11px; color:var(--text-400); margin-bottom:6px; text-transform:uppercase; letter-spacing:.6px;}
+.field input{
+  width:100%; padding:11px 13px; border-radius:10px; background:var(--black-700);
+  border:1px solid var(--glass-border); color:var(--text-100); font-size:13.5px; transition:border .15s, box-shadow .15s;
+}
+.field input:focus{border-color:var(--orange-500); box-shadow:0 0 0 3px var(--orange-glow);}
+.btn-primary{
+  width:100%; padding:12px; border-radius:10px; background:linear-gradient(135deg,var(--orange-500),var(--orange-600));
+  color:#fff; font-weight:600; font-size:13.5px; margin-top:6px; box-shadow:0 10px 24px var(--orange-glow);
+}
+.btn-primary:hover{filter:brightness(1.08);}
+.btn-primary:disabled{opacity:.55; cursor:not-allowed;}
+.login-error{color:var(--danger); font-size:12px; text-align:center; margin-top:10px; min-height:14px;}
+.login-foot{text-align:center; margin-top:16px; font-size:11px; color:var(--text-400);}
+.login-foot a{color:var(--orange-500); text-decoration:none; cursor:pointer;}
+
+/* ================= APP SHELL ================= */
+#screen-app{background:var(--black-900);}
+.shell{height:100%; display:flex; flex-direction:column;}
+.topbar{
+  height:60px; flex-shrink:0; display:flex; align-items:center; justify-content:space-between;
+  padding:0 20px; background:rgba(18,18,21,.85); backdrop-filter:blur(14px); border-bottom:1px solid var(--glass-border); z-index:50;
+}
+.brand{display:flex; align-items:center; gap:10px; font-weight:700; font-size:14.5px;}
+.brand .dot{width:9px; height:9px; border-radius:50%; background:var(--orange-500); box-shadow:0 0 10px var(--orange-500);}
+.nav-tabs{display:flex; gap:6px; background:var(--black-800); padding:4px; border-radius:12px;}
+.nav-tab{padding:8px 16px; border-radius:9px; background:transparent; color:var(--text-400); font-size:12.5px; font-weight:600; transition:all .18s;}
+.nav-tab.active{background:linear-gradient(135deg,var(--orange-500),var(--orange-600)); color:#fff; box-shadow:0 4px 14px var(--orange-glow);}
+.nav-tab:not(.active):hover{color:var(--text-100); background:var(--black-700);}
+.topbar-right{display:flex; align-items:center; gap:12px; position:relative;}
+.avatar-btn{width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg,var(--orange-500),#ffb066); color:#1a1206; font-weight:700; font-size:13px; display:flex; align-items:center; justify-content:center; border:2px solid var(--glass-border); transition:transform .15s;}
+.avatar-btn:hover{transform:scale(1.06);}
+.role-badge{font-size:10px; padding:3px 9px; border-radius:20px; background:var(--black-700); color:var(--orange-500); font-weight:700; letter-spacing:.4px; border:1px solid rgba(255,122,26,.3);}
+.profile-menu{
+  position:absolute; top:50px; right:0; width:250px; background:rgba(20,20,24,.96); backdrop-filter:blur(18px);
+  border:1px solid var(--glass-border); border-radius:14px; padding:16px; box-shadow:0 20px 50px rgba(0,0,0,.5);
+  display:none; z-index:100; animation:popIn .22s cubic-bezier(.16,1,.3,1) both;
+}
+.profile-menu.open{display:block;}
+.profile-menu .pname{font-weight:700; font-size:13.5px; margin-bottom:2px;}
+.profile-menu .pemail{font-size:11.5px; color:var(--text-400); margin-bottom:12px; word-break:break-all;}
+.pm-item{display:flex; align-items:center; gap:9px; padding:9px 10px; border-radius:8px; font-size:12.5px; color:var(--text-100); background:transparent; width:100%; text-align:left; transition:background .15s;}
+.pm-item:hover{background:var(--black-700);}
+.pm-item.danger{color:var(--danger);}
+.pm-sep{height:1px; background:var(--glass-border); margin:8px 0;}
+
+.content{flex:1; overflow:hidden; position:relative;}
+.page{position:absolute; inset:0; display:none; overflow:auto;}
+.page.active{display:block; animation:pageIn .38s cubic-bezier(.16,1,.3,1) both;}
+@keyframes pageIn{from{opacity:0; transform:translateY(14px) scale(.995);} to{opacity:1; transform:translateY(0) scale(1);}}
+
+/* ================= VIEW PAGE (hitam-orange transparan) ================= */
+#page-view{background:radial-gradient(circle at 85% 0%, rgba(255,122,26,.10), transparent 45%), var(--black-900); padding:26px 30px 60px;}
+.view-head{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; margin-bottom:20px;}
+.view-title{font-size:20px; font-weight:700;}
+.view-title span{color:var(--orange-500);}
+.month-nav{display:flex; align-items:center; gap:10px; background:var(--glass-b); border:1px solid var(--glass-border); padding:6px; border-radius:12px; backdrop-filter:blur(10px);}
+.month-nav button{width:32px; height:32px; border-radius:8px; background:var(--black-700); color:var(--text-100); font-size:15px; transition:background .15s;}
+.month-nav button:hover{background:var(--orange-600); color:#fff;}
+.month-label{font-weight:700; font-size:13.5px; min-width:110px; text-align:center; letter-spacing:.4px;}
+.filters-bar{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px;}
+.filters-bar input, .filters-bar select{
+  background:var(--glass-b); border:1px solid var(--glass-border); color:var(--text-100); padding:9px 13px; border-radius:10px; font-size:12.5px; backdrop-filter:blur(10px);
+}
+.filters-bar input{min-width:200px;}
+.filters-bar input:focus, .filters-bar select:focus{border-color:var(--orange-500);}
+.stat-strip{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:22px;}
+.stat-card{background:var(--glass-b); border:1px solid var(--glass-border); border-radius:14px; padding:16px; backdrop-filter:blur(10px); transition:transform .18s, border-color .18s;}
+.stat-card:hover{transform:translateY(-3px); border-color:rgba(255,122,26,.4);}
+.stat-num{font-size:22px; font-weight:800; font-family:'JetBrains Mono',monospace;}
+.stat-lbl{font-size:11px; color:var(--text-400); margin-top:2px;}
+.orange-txt{color:var(--orange-500);}
+
+.card-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:14px;}
+.stu-card{
+  background:var(--glass-b); border:1px solid var(--glass-border); border-radius:16px; padding:16px 18px; backdrop-filter:blur(10px);
+  transition:transform .2s cubic-bezier(.16,1,.3,1), border-color .2s, box-shadow .2s; cursor:pointer; position:relative; overflow:hidden;
+}
+.stu-card::before{content:''; position:absolute; top:0; left:0; width:3px; height:100%; background:linear-gradient(180deg,var(--orange-500),var(--orange-600)); opacity:0; transition:opacity .2s;}
+.stu-card:hover{transform:translateY(-4px); border-color:rgba(255,122,26,.45); box-shadow:0 16px 34px rgba(0,0,0,.4);}
+.stu-card:hover::before{opacity:1;}
+.stu-top{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;}
+.stu-name{font-weight:700; font-size:14px; line-height:1.3;}
+.stu-meta{font-size:11px; color:var(--text-400); margin-top:3px;}
+.stu-no{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-400); background:var(--black-700); padding:2px 8px; border-radius:20px;}
+.stu-row{display:flex; justify-content:space-between; font-size:12px; padding:5px 0; border-top:1px dashed rgba(255,255,255,.08);}
+.stu-row b{font-family:'JetBrains Mono',monospace; font-weight:600;}
+.badge-jp{padding:1px 8px; border-radius:20px; font-size:10.5px; font-weight:700;}
+.badge-ok{background:rgba(51,209,122,.15); color:var(--ok);}
+.badge-warn{background:rgba(255,77,77,.15); color:var(--danger);}
+.empty-state{text-align:center; padding:60px 20px; color:var(--text-400);}
+.empty-state .ic{font-size:38px; margin-bottom:10px;}
+
+/* modal (detail per santri) */
+.modal-bg{position:fixed; inset:0; background:rgba(5,5,7,.7); backdrop-filter:blur(6px); z-index:200; display:none; align-items:center; justify-content:center; padding:20px;}
+.modal-bg.open{display:flex; animation:fadeIn .25s ease both;}
+.modal-box{
+  width:min(560px,94vw); max-height:84vh; overflow:auto; background:rgba(18,18,21,.92); backdrop-filter:blur(20px);
+  border:1px solid var(--glass-border); border-radius:18px; padding:24px; animation:popIn .3s cubic-bezier(.16,1,.3,1) both;
+}
+.modal-head{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;}
+.modal-close{width:30px; height:30px; border-radius:8px; background:var(--black-700); color:var(--text-100); font-size:15px;}
+.modal-close:hover{background:var(--orange-600);}
+.timeline{display:flex; flex-direction:column; gap:8px;}
+.tl-row{display:grid; grid-template-columns:90px 1fr 1fr 1.4fr; gap:8px; font-size:12px; background:var(--glass-b); border:1px solid var(--glass-border); border-radius:10px; padding:9px 12px; align-items:center;}
+.tl-row.head{background:transparent; border:none; color:var(--text-400); font-weight:700; font-size:10.5px; text-transform:uppercase;}
+.tl-m{font-weight:700; color:var(--orange-500);}
+
+/* ================= DASHBOARD (opsional statistik) ================= */
+#page-dashboard{background:var(--black-900); padding:26px 30px;}
+
+/* ================= DATABASE PAGE — mirip Excel 2025 ================= */
+#page-database{background:#f3f2f1; color:#1f1f1f;}
+.xl-wrap{display:flex; flex-direction:column; height:100%;}
+.xl-ribbon{
+  background:linear-gradient(180deg,#ffffff,#f7f7f7); border-bottom:1px solid var(--excel-grid); padding:8px 14px;
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+}
+.xl-tabbar{display:flex; gap:2px; padding:0 14px; background:#fff; border-bottom:1px solid var(--excel-grid);}
+.xl-tab{padding:8px 16px; font-size:12.5px; font-weight:600; color:#555; border-bottom:3px solid transparent;}
+.xl-tab.active{color:var(--excel-green); border-bottom-color:var(--excel-green);}
+.xl-btn{
+  display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 10px; border-radius:6px; background:transparent;
+  color:#333; font-size:10.5px; font-weight:500; min-width:56px; transition:background .12s;
+}
+.xl-btn .ic{font-size:16px;}
+.xl-btn:hover{background:#eef1ee;}
+.xl-btn:active{background:#dfe6df;}
+.xl-btn.primary{background:var(--excel-green); color:#fff;}
+.xl-btn.primary:hover{background:var(--excel-green-dark);}
+.xl-sep{width:1px; height:34px; background:var(--excel-grid); margin:0 4px;}
+.xl-search{padding:7px 10px; border:1px solid var(--excel-grid); border-radius:6px; font-size:12px; width:190px;}
+.xl-search:focus{border-color:var(--excel-green); outline:none;}
+
+.xl-formula-bar{display:flex; align-items:center; gap:8px; padding:6px 14px; background:#fff; border-bottom:1px solid var(--excel-grid);}
+.xl-cellref{width:76px; padding:5px 8px; font-family:'JetBrains Mono',monospace; font-size:12px; border:1px solid var(--excel-grid); border-radius:4px; background:#f7f7f7; text-align:center; font-weight:600; color:var(--excel-green-dark);}
+.xl-fx{font-family:'JetBrains Mono',monospace; font-style:italic; color:#888; font-size:13px; padding:0 4px;}
+.xl-formula-input{flex:1; padding:5px 10px; border:1px solid var(--excel-grid); border-radius:4px; font-size:12.5px; font-family:'JetBrains Mono',monospace;}
+.xl-formula-input:focus{border-color:var(--excel-green); outline:none;}
+
+.xl-grid-area{flex:1; overflow:auto; position:relative; background:#e9ebe9;}
+table.xl-table{border-collapse:separate; border-spacing:0; background:#fff; font-size:12px; font-family:'JetBrains Mono',monospace;}
+table.xl-table th, table.xl-table td{border-right:1px solid var(--excel-grid); border-bottom:1px solid var(--excel-grid); white-space:nowrap;}
+.xl-corner{position:sticky; top:0; left:0; z-index:30; background:var(--excel-header); width:40px; min-width:40px;}
+.xl-colhead{position:sticky; top:0; z-index:20; background:var(--excel-header); color:#444; font-weight:600; text-align:center; padding:5px 8px; font-size:11px;}
+.xl-monthhead{position:sticky; top:0; z-index:20; background:#e7f4ec; color:var(--excel-green-dark); font-weight:700; text-align:center; padding:5px 8px; font-size:11px; letter-spacing:.4px;}
+.xl-rowhead{position:sticky; left:0; z-index:15; background:var(--excel-header); color:#555; font-weight:600; text-align:center; padding:5px 8px; min-width:40px;}
+.xl-frozen{position:sticky; z-index:10; background:#fff;}
+.xl-cell{padding:5px 10px; text-align:left; cursor:cell; transition:background .08s; position:relative; color:#1f1f1f;}
+.xl-cell.num{text-align:right; font-variant-numeric:tabular-nums;}
+.xl-cell:hover{background:#f1f8f3;}
+.xl-cell.selected{outline:2px solid var(--excel-green); outline-offset:-2px; background:#e7f4ec; z-index:5;}
+.xl-cell.readonly{cursor:default; background:#fbfbfb; color:#888;}
+.xl-cell input{width:100%; border:none; outline:none; background:transparent; font:inherit; padding:0; color:inherit;}
+.xl-row:nth-child(even) td:not(.xl-frozen){background:#fafcfb;}
+.xl-row.match td{background:#fff3e0 !important;}
+tr .xl-frozen{box-shadow:2px 0 4px rgba(0,0,0,.05);}
+.xl-statusbar{padding:5px 14px; background:var(--excel-green); color:#fff; font-size:11px; display:flex; justify-content:space-between; font-family:'JetBrains Mono',monospace;}
+.xl-toast{
+  position:fixed; bottom:22px; right:22px; background:var(--excel-green); color:#fff; padding:10px 18px; border-radius:10px;
+  font-size:12.5px; font-weight:600; box-shadow:0 10px 30px rgba(0,0,0,.25); z-index:300; display:none; align-items:center; gap:8px;
+}
+.xl-toast.show{display:flex; animation:slideUp .3s cubic-bezier(.16,1,.3,1) both;}
+.xl-toast.err{background:var(--danger);}
+
+/* small helpers */
+.hidden{display:none !important;}
+.spin-mini{width:14px; height:14px; border-radius:50%; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; animation:spin .7s linear infinite; display:inline-block;}
+
+@media(max-width:760px){
+  .nav-tabs{display:none;}
+  .view-title{font-size:17px;}
+  .xl-btn{min-width:44px;}
+  .xl-search{width:120px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ LOADING ============ -->
+<div id="screen-loading" class="screen active"><div class="spinner"></div></div>
+
+<!-- ============ LOGIN ============ -->
+<div id="screen-login" class="screen">
+  <div class="login-bg-mock">
+    <div class="mock-top">
+      <div class="mock-pill" style="width:160px;"></div>
+      <div class="mock-avatar"></div>
+    </div>
+    <div class="mock-grid">
+      <div class="mock-card"><div class="mock-line short"></div><div class="mock-line"></div><div class="mock-line" style="width:40%"></div></div>
+      <div class="mock-card"><div class="mock-line short"></div><div class="mock-line"></div><div class="mock-line" style="width:40%"></div></div>
+      <div class="mock-card"><div class="mock-line short"></div><div class="mock-line"></div><div class="mock-line" style="width:40%"></div></div>
+      <div class="mock-card"><div class="mock-line short"></div><div class="mock-line"></div><div class="mock-line" style="width:40%"></div></div>
+      <div class="mock-card"><div class="mock-line short"></div><div class="mock-line"></div><div class="mock-line" style="width:40%"></div></div>
+      <div class="mock-card"><div class="mock-line short"></div><div class="mock-line"></div><div class="mock-line" style="width:40%"></div></div>
+    </div>
+  </div>
+  <div class="login-wrap">
+    <form class="login-card" id="loginForm" autocomplete="off">
+      <div class="login-logo">آ</div>
+      <div class="login-title">Laporan Bagian Bahasa</div>
+      <div class="login-sub">Penilaian &amp; Pelanggaran Santri</div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="loginEmail" placeholder="nama@email.com" required>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="loginPassword" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn-primary pressable" id="loginBtn">Masuk</button>
+      <div class="login-error" id="loginError"></div>
+      <div class="login-foot">Lupa password? <a id="forgotLink">Reset lewat email</a></div>
+    </form>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="screen-app" class="screen">
+  <div class="shell">
+    <div class="topbar">
+      <div class="brand"><span class="dot"></span> Bagian Bahasa</div>
+      <div class="nav-tabs" id="navTabs">
+        <button class="nav-tab pressable" data-page="view">Lihat Laporan</button>
+        <button class="nav-tab pressable" data-page="dashboard">Dashboard</button>
+        <button class="nav-tab pressable admin-only hidden" data-page="database">Database</button>
+      </div>
+      <div class="topbar-right">
+        <span class="role-badge" id="roleBadge">VIEWER</span>
+        <button class="avatar-btn pressable" id="avatarBtn">?</button>
+        <div class="profile-menu" id="profileMenu">
+          <div class="pname" id="pmName">-</div>
+          <div class="pemail" id="pmEmail">-</div>
+          <div class="pm-sep"></div>
+          <button class="pm-item pressable" id="pmReset">🔑 Ganti Password</button>
+          <button class="pm-item pressable" id="pmRefresh">⟳ Segarkan Data</button>
+          <div class="pm-sep"></div>
+          <button class="pm-item danger pressable" id="pmLogout">↪ Keluar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- ===== VIEW PAGE ===== -->
+      <div class="page" id="page-view">
+        <div class="view-head">
+          <div class="view-title">Laporan <span>Bulanan</span> Santri</div>
+          <div class="month-nav">
+            <button class="pressable" id="prevMonth">‹</button>
+            <div class="month-label" id="monthLabel">JULI</div>
+            <button class="pressable" id="nextMonth">›</button>
+          </div>
+        </div>
+        <div class="filters-bar">
+          <input type="text" id="searchView" placeholder="🔍 Cari nama santri...">
+          <select id="filterKelas"><option value="">Semua Kelas</option></select>
+          <select id="filterKamar"><option value="">Semua Kamar</option></select>
+        </div>
+        <div class="stat-strip">
+          <div class="stat-card"><div class="stat-num" id="statTotal">0</div><div class="stat-lbl">Total Santri</div></div>
+          <div class="stat-card"><div class="stat-num orange-txt" id="statPelanggaran">0</div><div class="stat-lbl">Total Pelanggaran Bulan Ini</div></div>
+          <div class="stat-card"><div class="stat-num" id="statRata">0</div><div class="stat-lbl">Rata-rata Nilai Keaktifan</div></div>
+          <div class="stat-card"><div class="stat-num" id="statBersih">0</div><div class="stat-lbl">Santri Tanpa Pelanggaran</div></div>
+        </div>
+        <div class="card-grid" id="cardGrid"></div>
+        <div class="empty-state hidden" id="emptyView"><div class="ic">🗂️</div>Tidak ada data yang cocok.</div>
+      </div>
+
+      <!-- ===== DASHBOARD PAGE ===== -->
+      <div class="page" id="page-dashboard">
+        <div class="view-head"><div class="view-title">Ringkasan <span>Tahunan</span></div></div>
+        <div class="stat-strip" id="dashStrip"></div>
+        <div id="dashKelasWrap" style="margin-top:10px;">
+          <div class="view-title" style="font-size:15px; margin-bottom:12px;">Jumlah Santri per <span>Kelas</span></div>
+          <div class="card-grid" id="dashKelasGrid"></div>
+        </div>
+      </div>
+
+      <!-- ===== DATABASE PAGE (Excel-like) ===== -->
+      <div class="page" id="page-database">
+        <div class="xl-wrap">
+          <div class="xl-tabbar">
+            <div class="xl-tab active">Beranda</div>
+            <div class="xl-tab">Data</div>
+          </div>
+          <div class="xl-ribbon">
+            <button class="xl-btn pressable" id="btnAddRow"><span class="ic">➕</span>Baris</button>
+            <button class="xl-btn pressable" id="btnDelRow"><span class="ic">🗑️</span>Hapus</button>
+            <div class="xl-sep"></div>
+            <button class="xl-btn pressable" id="btnImport"><span class="ic">📥</span>Impor Excel</button>
+            <input type="file" id="fileImport" accept=".xlsx,.xls" class="hidden">
+            <button class="xl-btn pressable primary" id="btnExport"><span class="ic">📤</span>Ekspor Excel</button>
+            <div class="xl-sep"></div>
+            <select id="monthFilterDb" class="xl-search" style="width:140px;"></select>
+            <input type="text" id="searchDb" class="xl-search" placeholder="🔍 Cari data...">
+          </div>
+          <div class="xl-formula-bar">
+            <div class="xl-cellref" id="cellRef">A1</div>
+            <span class="xl-fx">fx</span>
+            <input type="text" class="xl-formula-input" id="formulaInput" placeholder="Klik sel untuk mengedit">
+          </div>
+          <div class="xl-grid-area" id="xlGridArea">
+            <table class="xl-table" id="xlTable"></table>
+          </div>
+          <div class="xl-statusbar">
+            <span id="xlStatus">Siap</span>
+            <span id="xlCount">0 baris</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL DETAIL SANTRI ===== -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <div class="view-title" id="modalName" style="font-size:17px;"></div>
+        <div class="stu-meta" id="modalMeta"></div>
+      </div>
+      <button class="modal-close pressable" id="modalClose">✕</button>
+    </div>
+    <div class="timeline" id="modalTimeline"></div>
+  </div>
+</div>
+
+<div class="xl-toast" id="xlToast"><span id="xlToastText"></span></div>
+
+<script>
+/* ======================================================================
+   KONFIGURASI FIREBASE
+   Realtime Database — ganti databaseURL di bawah sesuai project kamu
+   (Firebase Console > Realtime Database > salin URL di bagian atas).
+   ====================================================================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyAdJLuC7Tqn9Z8ZaHIwd2xUWloNOt6g0Yg",
+  authDomain: "laporan-bulanan-6b535.firebaseapp.com",
+  databaseURL: "https://laporan-bulanan-6b535-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "laporan-bulanan-6b535",
+  storageBucket: "laporan-bulanan-6b535.firebasestorage.app",
+  messagingSenderId: "16190084662",
+  appId: "1:16190084662:web:b9c13161127de61ba5ea97",
+  measurementId: "G-7R43VR3KGS"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+
+const VIEWER_EMAIL = "raja.darman32@smk.belajar.id";
+const ADMIN_EMAIL  = "ostarbagianbahasa@gmail.com";
+
+const MONTHS = ["JULI","AGUSTUS","SEPTEMBER","OKTOBER","NOVEMBER","DESEMBER",
+                "JANUARI","FEBRUARI","MARET","APRIL","MEI","JUNI"];
+
+const SEED_STUDENTS = [{"no": 1, "abs": 1, "nama": "Abdurrahman Faiz Attaqi", "kelas": "12", "kamar": "IMAM MALIK"}, {"no": 2, "abs": 2, "nama": "Ahmad Nanda Saputro", "kelas": "12", "kamar": "IMAM MALIK"}, {"no": 3, "abs": 3, "nama": "Fajri Imam Saefuddin", "kelas": "12", "kamar": "IMAM MALIK"}, {"no": 4, "abs": 4, "nama": "Fadli Ahmil Alfauzan", "kelas": "12", "kamar": "IMAM MALIK"}, {"no": 5, "abs": 5, "nama": "Usamah Abdurrahman", "kelas": "12", "kamar": "IMAM MALIK"}, {"no": 6, "abs": 6, "nama": "Muhammad", "kelas": "12", "kamar": "IMAM MALIK"}, {"no": 7, "abs": 7, "nama": "Muhammad Arvan Nabil", "kelas": "12", "kamar": "IMAM MALIK"}, {"no": 8, "abs": 8, "nama": "Muhamad Arafah Paputungan", "kelas": "12", "kamar": "IMAM MALIK"}, {"no": 9, "abs": 9, "nama": "Muhammad Shofwan Gultom", "kelas": "12", "kamar": "IMAM MALIK"}, {"no": 10, "abs": 10, "nama": "Umair Nabil Siroj ", "kelas": "12", "kamar": "IMAM MALIK"}, {"no": 11, "abs": 11, "nama": "Thoifurrohman ", "kelas": "12", "kamar": "IMAM MALIK"}, {"no": 12, "abs": 12, "nama": "Agan Titis Perdana", "kelas": "12", "kamar": "IMAM MALIK"}, {"no": 13, "abs": 13, "nama": "Rasya Athiyyah Fatih Sineke", "kelas": "12", "kamar": "IMAM MALIK"}, {"no": 14, "abs": 14, "nama": "Jafar Imam As Saefuddin", "kelas": "12", "kamar": "IMAM MALIK"}, {"no": 15, "abs": 15, "nama": "Zaid Khoiruddin Abdillah", "kelas": "12", "kamar": "IMAM MALIK"}, {"no": 16, "abs": 16, "nama": "Yusuf Adhi Nugroho", "kelas": "11", "kamar": "IMAM MALIK"}, {"no": 17, "abs": 1, "nama": "Abdullah Bin Bagus", "kelas": "9A", "kamar": "IMAM SYAFII"}, {"no": 18, "abs": 2, "nama": "Abror Amrullah", "kelas": "9A", "kamar": "IMAM SYAFII"}, {"no": 19, "abs": 3, "nama": "Adli Putra Atallah", "kelas": "9A", "kamar": "IMAM SYAFII"}, {"no": 20, "abs": 4, "nama": "Haidar Hanif Attallah", "kelas": "9A", "kamar": "IMAM SYAFII"}, {"no": 21, "abs": 5, "nama": "Galih Widiansaha", "kelas": "9A", "kamar": "IMAM SYAFII"}, {"no": 22, "abs": 6, "nama": "Hafidz Khairun Nail", "kelas": "9A", "kamar": "IMAM SYAFII"}, {"no": 23, "abs": 7, "nama": "Azril Suryajati", "kelas": "9A", "kamar": "IMAM SYAFII"}, {"no": 24, "abs": 8, "nama": "Lintang Ayatullah Rheksabumi", "kelas": "9A", "kamar": "IMAM SYAFII"}, {"no": 25, "abs": 9, "nama": "Muhammad Alim Khairuddin", "kelas": "9A", "kamar": "IMAM SYAFII"}, {"no": 26, "abs": 10, "nama": "Muhammad Jundi", "kelas": "9A", "kamar": "IMAM SYAFII"}, {"no": 27, "abs": 11, "nama": "Ayyub", "kelas": "9A", "kamar": "IMAM SYAFII"}, {"no": 28, "abs": 12, "nama": "Muhammad Malik Dinar", "kelas": "9A", "kamar": "IMAM SYAFII"}, {"no": 29, "abs": 13, "nama": "Muhammad Jundu Rabbani", "kelas": "9A", "kamar": "IMAM SYAFII"}, {"no": 30, "abs": 14, "nama": "Rafa Abdi Zakaria", "kelas": "9A", "kamar": "IMAM SYAFII"}, {"no": 31, "abs": 15, "nama": "Ustman Henandar Pragiwa", "kelas": "9A", "kamar": "IMAM SYAFII"}, {"no": 32, "abs": 1, "nama": "Abyan Dzaki Nur Rizki", "kelas": "9B", "kamar": "IMAM AHMAD"}, {"no": 33, "abs": 2, "nama": "Abdullah Tapen", "kelas": "9B", "kamar": "IMAM AHMAD"}, {"no": 34, "abs": 3, "nama": "Alief Muhammad", "kelas": "9B", "kamar": "IMAM AHMAD"}, {"no": 35, "abs": 4, "nama": "Alif Nisfu Ramadahan", "kelas": "9B", "kamar": "IMAM AHMAD"}, {"no": 36, "abs": 5, "nama": "Azizan Aflah Aghafahlavy", "kelas": "9B", "kamar": "IMAM AHMAD"}, {"no": 37, "abs": 6, "nama": "Fathan Althaf Zanuarthree", "kelas": "9B", "kamar": "IMAM AHMAD"}, {"no": 38, "abs": 7, "nama": "Dhamir Halil Jidha Pamuji", "kelas": "9B", "kamar": "IMAM AHMAD"}, {"no": 39, "abs": 8, "nama": "Kayyis Abdul Fatah", "kelas": "9B", "kamar": "IMAM AHMAD"}, {"no": 40, "abs": 9, "nama": "Khasbi Risqia Akbar", "kelas": "9B", "kamar": "IMAM AHMAD"}, {"no": 41, "abs": 10, "nama": "Ihsan Abdillah", "kelas": "9B", "kamar": "IMAM AHMAD"}, {"no": 42, "abs": 11, "nama": "Muhammad Teti Yudhatama", "kelas": "9B", "kamar": "IMAM AHMAD"}, {"no": 43, "abs": 12, "nama": "Muhammad Keanu Uzaid Fairus", "kelas": "9B", "kamar": "IMAM AHMAD"}, {"no": 44, "abs": 13, "nama": "Muhammad Ihsan", "kelas": "9B", "kamar": "IMAM AHMAD"}, {"no": 45, "abs": 14, "nama": "M Raihan Alfarisi Akbar", "kelas": "9B", "kamar": "IMAM AHMAD"}, {"no": 46, "abs": 1, "nama": "Izzan Bilal Mahmud", "kelas": "10", "kamar": "IMAM MUSLIM"}, {"no": 47, "abs": 2, "nama": "Ibrohim An Nawawi", "kelas": "10", "kamar": "IMAM MUSLIM"}, {"no": 48, "abs": 3, "nama": "Ahmad Abdillah", "kelas": "10", "kamar": "IMAM MUSLIM"}, {"no": 49, "abs": 4, "nama": "M Abhingya Kay M El Arief", "kelas": "10", "kamar": "IMAM MUSLIM"}, {"no": 50, "abs": 5, "nama": "Jafis Ahmad", "kelas": "10", "kamar": "IMAM MUSLIM"}, {"no": 51, "abs": 6, "nama": "Rafiul Khasani", "kelas": "10", "kamar": "IMAM MUSLIM"}, {"no": 52, "abs": 7, "nama": "Ahnaf Fouzan", "kelas": "10", "kamar": "IMAM MUSLIM"}, {"no": 53, "abs": 8, "nama": "Ikhsan Nur Wahid", "kelas": "10", "kamar": "IMAM MUSLIM"}, {"no": 54, "abs": 9, "nama": "Muhammad Abdurrohman", "kelas": "10", "kamar": "IMAM MUSLIM"}, {"no": 55, "abs": 10, "nama": "Pilar Panghegar Basyar", "kelas": "10", "kamar": "IMAM MUSLIM"}, {"no": 56, "abs": 11, "nama": "Nabil Abyazir Ikhsan", "kelas": "10", "kamar": "IMAM MUSLIM"}, {"no": 57, "abs": 12, "nama": "Sabri Albani", "kelas": "10", "kamar": "IMAM MUSLIM"}, {"no": 58, "abs": 13, "nama": "Qaiz Zainul A", "kelas": "10", "kamar": "IMAM MUSLIM"}, {"no": 59, "abs": 14, "nama": "Zhafran Alaudin Firash", "kelas": "10", "kamar": "IMAM MUSLIM"}, {"no": 60, "abs": 15, "nama": "Nurfakhrul Hanif Azhar", "kelas": "10", "kamar": "IMAM MUSLIM"}, {"no": 61, "abs": 16, "nama": "Muhammad Azka Al Fatih", "kelas": "10", "kamar": "IMAM MUSLIM"}, {"no": 62, "abs": 1, "nama": "Abrisam Mirza Ukail", "kelas": "10", "kamar": "IMAM BUKHORI"}, {"no": 63, "abs": 2, "nama": "Abdullah Umar Al Husen", "kelas": "10", "kamar": "IMAM BUKHORI"}, {"no": 64, "abs": 3, "nama": "Dzulqarnain", "kelas": "10", "kamar": "IMAM BUKHORI"}, {"no": 65, "abs": 4, "nama": "Azka Fawwaz Andrean", "kelas": "10", "kamar": "IMAM BUKHORI"}, {"no": 66, "abs": 5, "nama": "Said Al Kahfi Nujhan", "kelas": "10", "kamar": "IMAM BUKHORI"}, {"no": 67, "abs": 6, "nama": "Fatih Malka Firdaus Zada", "kelas": "10", "kamar": "IMAM BUKHORI"}, {"no": 68, "abs": 7, "nama": "Arkaan Ahmad N H", "kelas": "10", "kamar": "IMAM BUKHORI"}, {"no": 69, "abs": 8, "nama": "Khoirul Afif Khaedar", "kelas": "10", "kamar": "IMAM BUKHORI"}, {"no": 70, "abs": 9, "nama": "Abinaya B Al Machdi", "kelas": "10", "kamar": "IMAM BUKHORI"}, {"no": 71, "abs": 10, "nama": "Azka Abyan Pratama", "kelas": "10", "kamar": "IMAM BUKHORI"}, {"no": 72, "abs": 11, "nama": "M Uwais Al Qarni", "kelas": "10", "kamar": "IMAM BUKHORI"}, {"no": 73, "abs": 12, "nama": "Farros Raditya Aqil", "kelas": "10", "kamar": "IMAM BUKHORI"}, {"no": 74, "abs": 13, "nama": "Rizki Ramadhani", "kelas": "10", "kamar": "IMAM BUKHORI"}, {"no": 75, "abs": 14, "nama": "Alexi Galuh Pradipta", "kelas": "10", "kamar": "IMAM BUKHORI"}, {"no": 76, "abs": 15, "nama": "Davin Arestha Pangestu", "kelas": "10", "kamar": "IMAM BUKHORI"}, {"no": 77, "abs": 16, "nama": "Abdurrahman Faruh", "kelas": "10", "kamar": "IMAM BUKHORI"}, {"no": 78, "abs": 17, "nama": "Ahmad Mujahidillah", "kelas": "10", "kamar": "IMAM BUKHORI"}];
+
+/* ======================================================================
+   STATE
+   ====================================================================== */
+let currentRole = null; // 'viewer' | 'admin'
+let currentUser = null;
+let students = {};      // id -> {no,abs,nama,kelas,kamar,months:{...}}
+let monthIndex = 0;
+let dbMonthIndex = 0;
+let selectedCell = null; // {studentId, field} field: 'no'|'abs'|'nama'|'kelas'|'kamar'|'JULI_jp'...
+let selectedRowId = null;
+
+function emptyMonth(){ return {jp:"", keaktifan:"", keterangan:""}; }
+function emptyMonths(){ const o={}; MONTHS.forEach(m=>o[m]=emptyMonth()); return o; }
+
+/* ======================================================================
+   UTIL
+   ====================================================================== */
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.toggle('active', t.dataset.page===id.replace('page-','')));
+}
+function toast(msg, isErr){
+  const t=document.getElementById('xlToast');
+  document.getElementById('xlToastText').textContent = msg;
+  t.classList.toggle('err', !!isErr);
+  t.classList.add('show');
+  clearTimeout(toast._h);
+  toast._h = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+document.addEventListener('click', e=>{
+  const el = e.target.closest('.pressable');
+  if(el){
+    const r = document.createElement('span');
+    r.className='ripple';
+    const rect = el.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    r.style.width = r.style.height = size+'px';
+    r.style.left = (e.clientX-rect.left-size/2)+'px';
+    r.style.top = (e.clientY-rect.top-size/2)+'px';
+    el.style.position = el.style.position || 'relative';
+    el.appendChild(r);
+    setTimeout(()=>r.remove(),600);
+  }
+});
+
+/* ======================================================================
+   AUTH
+   ====================================================================== */
+document.getElementById('loginForm').addEventListener('submit', function(e){
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPassword').value;
+  const btn = document.getElementById('loginBtn');
+  const errBox = document.getElementById('loginError');
+  errBox.textContent='';
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin-mini"></span> Memproses...';
+  auth.signInWithEmailAndPassword(email, pass)
+    .catch(err=>{
+      let msg = "Email atau password salah.";
+      if(err.code==='auth/too-many-requests') msg = "Terlalu banyak percobaan. Coba lagi nanti.";
+      if(err.code==='auth/invalid-email') msg = "Format email tidak valid.";
+      if(err.code==='auth/user-disabled') msg = "Akun dinonaktifkan.";
+      errBox.textContent = msg;
+    })
+    .finally(()=>{
+      btn.disabled = false;
+      btn.innerHTML = 'Masuk';
+    });
+});
+
+document.getElementById('forgotLink').addEventListener('click', ()=>{
+  const email = document.getElementById('loginEmail').value.trim();
+  if(!email){ toast('Isi email dulu di atas', true); return; }
+  auth.sendPasswordResetEmail(email)
+    .then(()=>toast('Link reset password terkirim ke email'))
+    .catch(()=>toast('Gagal mengirim, cek email', true));
+});
+
+auth.onAuthStateChanged(user=>{
+  if(user){
+    currentUser = user;
+    currentRole = (user.email===ADMIN_EMAIL) ? 'admin' : 'viewer';
+    document.getElementById('roleBadge').textContent = currentRole==='admin' ? 'ADMIN' : 'VIEWER';
+    document.getElementById('avatarBtn').textContent = (user.email||'?')[0].toUpperCase();
+    document.getElementById('pmName').textContent = currentRole==='admin' ? 'Administrator' : 'Pengunjung';
+    document.getElementById('pmEmail').textContent = user.email;
+    document.querySelectorAll('.admin-only').forEach(el=>el.classList.toggle('hidden', currentRole!=='admin'));
+    showScreen('screen-app');
+    showPage('page-view');
+    initDataListener();
+  } else {
+    currentUser = null; currentRole = null;
+    showScreen('screen-login');
+  }
+});
+
+document.getElementById('pmLogout').addEventListener('click', ()=>{ auth.signOut(); closeProfileMenu(); });
+document.getElementById('pmReset').addEventListener('click', ()=>{
+  auth.sendPasswordResetEmail(currentUser.email).then(()=>toast('Email reset terkirim')).catch(()=>toast('Gagal mengirim',true));
+  closeProfileMenu();
+});
+document.getElementById('pmRefresh').addEventListener('click', ()=>{ toast('Data disegarkan'); closeProfileMenu(); });
+
+const avatarBtn = document.getElementById('avatarBtn');
+const profileMenu = document.getElementById('profileMenu');
+avatarBtn.addEventListener('click', e=>{ e.stopPropagation(); profileMenu.classList.toggle('open'); });
+function closeProfileMenu(){ profileMenu.classList.remove('open'); }
+document.addEventListener('click', ()=>closeProfileMenu());
+
+document.getElementById('navTabs').addEventListener('click', e=>{
+  const btn = e.target.closest('.nav-tab');
+  if(!btn) return;
+  const page = btn.dataset.page;
+  if(page==='database' && currentRole!=='admin'){ toast('Hanya admin yang bisa mengakses Database', true); return; }
+  showPage('page-'+page);
+  if(page==='dashboard') renderDashboard();
+  if(page==='database') renderDbTable();
+});
+
+/* ======================================================================
+   REALTIME DATABASE — listener
+   ====================================================================== */
+function initDataListener(){
+  const ref = db.ref('students');
+  ref.on('value', snap=>{
+    const val = snap.val();
+    if(!val){
+      if(currentRole==='admin'){ seedDatabase(); }
+      students = {};
+    } else {
+      students = val;
+    }
+    populateFilterOptions();
+    renderMonthLabel();
+    renderView();
+    if(document.getElementById('page-dashboard').classList.contains('active')) renderDashboard();
+    if(document.getElementById('page-database').classList.contains('active')) renderDbTable();
+  }, err=>{
+    console.error(err);
+    toast('Gagal memuat data: '+err.message, true);
+  });
+}
+
+function seedDatabase(){
+  const updates = {};
+  SEED_STUDENTS.forEach(s=>{
+    const id = db.ref('students').push().key;
+    updates[id] = { no:s.no, abs:s.abs, nama:s.nama, kelas:s.kelas, kamar:s.kamar, months: emptyMonths() };
+  });
+  db.ref('students').update(updates).then(()=>toast('Data awal berhasil dimuat'));
+}
+
+/* ======================================================================
+   VIEW PAGE
+   ====================================================================== */
+function renderMonthLabel(){
+  document.getElementById('monthLabel').textContent = MONTHS[monthIndex];
+}
+document.getElementById('prevMonth').addEventListener('click', ()=>{ monthIndex=(monthIndex+11)%12; renderMonthLabel(); renderView(); });
+document.getElementById('nextMonth').addEventListener('click', ()=>{ monthIndex=(monthIndex+1)%12; renderMonthLabel(); renderView(); });
+
+function populateFilterOptions(){
+  const kelasSet = new Set(), kamarSet = new Set();
+  Object.values(students).forEach(s=>{ if(s.kelas) kelasSet.add(s.kelas); if(s.kamar) kamarSet.add(s.kamar); });
+  fillSelect('filterKelas', kelasSet, 'Semua Kelas');
+  fillSelect('filterKamar', kamarSet, 'Semua Kamar');
+}
+function fillSelect(id, set, allLabel){
+  const el = document.getElementById(id);
+  const current = el.value;
+  el.innerHTML = `<option value="">${allLabel}</option>` + [...set].sort().map(v=>`<option value="${v}">${v}</option>`).join('');
+  el.value = current;
+}
+
+['searchView','filterKelas','filterKamar'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', renderView);
+  document.getElementById(id).addEventListener('change', renderView);
+});
+
+function renderView(){
+  const q = (document.getElementById('searchView').value||'').toLowerCase();
+  const fk = document.getElementById('filterKelas').value;
+  const fm = document.getElementById('filterKamar').value;
+  const month = MONTHS[monthIndex];
+  const grid = document.getElementById('cardGrid');
+  grid.innerHTML = '';
+  let list = Object.entries(students).filter(([id,s])=>{
+    if(fk && s.kelas!==fk) return false;
+    if(fm && s.kamar!==fm) return false;
+    if(q && !(s.nama||'').toLowerCase().includes(q)) return false;
+    return true;
+  }).sort((a,b)=> (a[1].no||0)-(b[1].no||0));
+
+  document.getElementById('emptyView').classList.toggle('hidden', list.length>0);
+
+  let totalPelanggaran=0, sumKeaktifan=0, countKeaktifan=0, bersih=0;
+  list.forEach(([id,s])=>{
+    const md = (s.months && s.months[month]) || emptyMonth();
+    const jp = parseInt(md.jp)||0;
+    totalPelanggaran += jp;
+    if(md.keaktifan!=="" && md.keaktifan!=null){ sumKeaktifan += parseFloat(md.keaktifan)||0; countKeaktifan++; }
+    if(jp===0) bersih++;
+
+    const card = document.createElement('div');
+    card.className = 'stu-card fadein';
+    card.innerHTML = `
+      <div class="stu-top">
+        <div>
+          <div class="stu-name">${escapeHtml(s.nama||'-')}</div>
+          <div class="stu-meta">Kelas ${escapeHtml(s.kelas||'-')} · ${escapeHtml(s.kamar||'-')}</div>
+        </div>
+        <div class="stu-no">#${s.no||'-'}</div>
+      </div>
+      <div class="stu-row"><span>Pelanggaran</span> <b class="badge-jp ${jp>0?'badge-warn':'badge-ok'}">${jp}</b></div>
+      <div class="stu-row"><span>Nilai Keaktifan</span> <b>${md.keaktifan!==""&&md.keaktifan!=null?md.keaktifan:'-'}</b></div>
+      <div class="stu-row"><span>Keterangan</span> <span style="max-width:140px; text-align:right; color:#c9c5c0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(md.keterangan||'-')}</span></div>
+    `;
+    card.addEventListener('click', ()=>openModal(id));
+    grid.appendChild(card);
+  });
+
+  document.getElementById('statTotal').textContent = list.length;
+  document.getElementById('statPelanggaran').textContent = totalPelanggaran;
+  document.getElementById('statRata').textContent = countKeaktifan? (sumKeaktifan/countKeaktifan).toFixed(1) : '-';
+  document.getElementById('statBersih').textContent = bersih;
+}
+
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* modal */
+function openModal(id){
+  const s = students[id]; if(!s) return;
+  document.getElementById('modalName').textContent = s.nama;
+  document.getElementById('modalMeta').textContent = `Kelas ${s.kelas} · ${s.kamar} · No ${s.no}`;
+  const tl = document.getElementById('modalTimeline');
+  tl.innerHTML = `<div class="tl-row head"><span>Bulan</span><span>Pelanggaran</span><span>Keaktifan</span><span>Keterangan</span></div>` +
+    MONTHS.map(m=>{
+      const md = (s.months && s.months[m]) || emptyMonth();
+      return `<div class="tl-row"><span class="tl-m">${m}</span><span>${md.jp||0}</span><span>${md.keaktifan||'-'}</span><span>${escapeHtml(md.keterangan||'-')}</span></div>`;
+    }).join('');
+  document.getElementById('modalBg').classList.add('open');
+}
+document.getElementById('modalClose').addEventListener('click', ()=>document.getElementById('modalBg').classList.remove('open'));
+document.getElementById('modalBg').addEventListener('click', e=>{ if(e.target.id==='modalBg') document.getElementById('modalBg').classList.remove('open'); });
+
+/* ======================================================================
+   DASHBOARD PAGE
+   ====================================================================== */
+function renderDashboard(){
+  const strip = document.getElementById('dashStrip');
+  const totalSantri = Object.keys(students).length;
+  let totalJpYear=0;
+  Object.values(students).forEach(s=>{
+    MONTHS.forEach(m=>{ totalJpYear += parseInt((s.months&&s.months[m]&&s.months[m].jp)||0)||0; });
+  });
+  strip.innerHTML = `
+    <div class="stat-card"><div class="stat-num">${totalSantri}</div><div class="stat-lbl">Total Santri Terdaftar</div></div>
+    <div class="stat-card"><div class="stat-num orange-txt">${totalJpYear}</div><div class="stat-lbl">Total Pelanggaran (1 Tahun)</div></div>
+    <div class="stat-card"><div class="stat-num">${MONTHS.length}</div><div class="stat-lbl">Bulan Dipantau</div></div>
+  `;
+  const kelasMap = {};
+  Object.values(students).forEach(s=>{ const k=s.kelas||'-'; kelasMap[k]=(kelasMap[k]||0)+1; });
+  const kg = document.getElementById('dashKelasGrid');
+  kg.innerHTML = Object.entries(kelasMap).sort().map(([k,v])=>`
+    <div class="stu-card" style="cursor:default;">
+      <div class="stu-top"><div class="stu-name">Kelas ${escapeHtml(k)}</div><div class="stu-no">${v}</div></div>
+      <div class="stu-row"><span>Jumlah Santri</span><b>${v}</b></div>
+    </div>`).join('');
+}
+
+/* ======================================================================
+   DATABASE PAGE — Excel-like
+   ====================================================================== */
+const monthFilterDb = document.getElementById('monthFilterDb');
+monthFilterDb.innerHTML = `<option value="all">Semua Bulan</option>` + MONTHS.map((m,i)=>`<option value="${i}">${m}</option>`).join('');
+monthFilterDb.addEventListener('change', renderDbTable);
+document.getElementById('searchDb').addEventListener('input', renderDbTable);
+
+function colLetter(idx){
+  let s=''; idx++;
+  while(idx>0){ let m=(idx-1)%26; s=String.fromCharCode(65+m)+s; idx=Math.floor((idx-1)/26); }
+  return s;
+}
+
+function renderDbTable(){
+  const table = document.getElementById('xlTable');
+  const monthFilter = monthFilterDb.value;
+  const monthsToShow = monthFilter==='all' ? MONTHS : [MONTHS[parseInt(monthFilter)]];
+  const q = (document.getElementById('searchDb').value||'').toLowerCase();
+
+  const fixedCols = [{k:'no',label:'NO',w:40,num:true},{k:'abs',label:'ABS',w:44,num:true},{k:'nama',label:'NAMA',w:190},{k:'kelas',label:'KELAS',w:60},{k:'kamar',label:'KAMAR',w:120}];
+
+  let html = '<thead>';
+  // row 1: month group headers
+  html += '<tr><th class="xl-corner" rowspan="2"></th>';
+  fixedCols.forEach((c,i)=>{ html += `<th class="xl-colhead xl-frozen" style="left:${40+fixedColOffset(i,fixedCols)}px; min-width:${c.w}px;" rowspan="2">${colLetter(i)}<br><span style="font-weight:800;">${c.label}</span></th>`; });
+  monthsToShow.forEach(m=>{ html += `<th class="xl-monthhead" colspan="3">${m}</th>`; });
+  html += '</tr><tr>';
+  monthsToShow.forEach(()=>{ html += `<th class="xl-colhead" style="min-width:76px;">JP</th><th class="xl-colhead" style="min-width:76px;">Keaktifan</th><th class="xl-colhead" style="min-width:150px;">Keterangan</th>`; });
+  html += '</tr></thead><tbody>';
+
+  let rows = Object.entries(students).sort((a,b)=>(a[1].no||0)-(b[1].no||0));
+  let rIdx = 0;
+  rows.forEach(([id,s])=>{
+    rIdx++;
+    const matchesSearch = !q || (s.nama||'').toLowerCase().includes(q) || String(s.no).includes(q) || (s.kelas||'').toLowerCase().includes(q) || (s.kamar||'').toLowerCase().includes(q);
+    if(!matchesSearch) return;
+    html += `<tr class="xl-row" data-id="${id}">`;
+    html += `<td class="xl-rowhead">${rIdx}</td>`;
+    fixedCols.forEach((c,i)=>{
+      const val = s[c.k]!=null? s[c.k] : '';
+      html += `<td class="xl-cell xl-frozen ${c.num?'num':''}" style="left:${40+fixedColOffset(i,fixedCols)}px; min-width:${c.w}px;" data-id="${id}" data-field="${c.k}">${escapeHtml(val)}</td>`;
+    });
+    monthsToShow.forEach(m=>{
+      const md = (s.months && s.months[m]) || emptyMonth();
+      html += `<td class="xl-cell num" data-id="${id}" data-field="${m}_jp">${escapeHtml(md.jp||'')}</td>`;
+      html += `<td class="xl-cell num" data-id="${id}" data-field="${m}_keaktifan">${escapeHtml(md.keaktifan||'')}</td>`;
+      html += `<td class="xl-cell" data-id="${id}" data-field="${m}_keterangan">${escapeHtml(md.keterangan||'')}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  table.innerHTML = html;
+  document.getElementById('xlCount').textContent = rIdx + ' baris';
+  attachCellHandlers();
+}
+function fixedColOffset(i, fixedCols){
+  let off=0; for(let j=0;j<i;j++) off += fixedCols[j].w; return off;
+}
+
+function attachCellHandlers(){
+  document.querySelectorAll('#xlTable .xl-cell').forEach(cell=>{
+    cell.addEventListener('click', ()=>selectCell(cell));
+    cell.addEventListener('dblclick', ()=>editCellInline(cell));
+  });
+  document.querySelectorAll('#xlTable .xl-row').forEach(row=>{
+    row.addEventListener('click', ()=>{ selectedRowId = row.dataset.id; });
+  });
+}
+
+function selectCell(cell){
+  if(currentRole!=='admin'){ 
+    document.getElementById('cellRef').textContent = refFor(cell);
+    document.getElementById('formulaInput').value = cell.textContent.trim();
+    document.getElementById('formulaInput').disabled = true;
+    return;
+  }
+  document.querySelectorAll('.xl-cell.selected').forEach(c=>c.classList.remove('selected'));
+  cell.classList.add('selected');
+  selectedCell = { id: cell.dataset.id, field: cell.dataset.field, el: cell };
+  selectedRowId = cell.dataset.id;
+  document.getElementById('cellRef').textContent = refFor(cell);
+  const input = document.getElementById('formulaInput');
+  input.disabled = false;
+  input.value = cell.textContent.trim();
+}
+function refFor(cell){
+  const row = cell.closest('tr');
+  const rIdx = [...row.parentNode.children].indexOf(row)+1;
+  const colIdx = [...row.children].indexOf(cell);
+  return colLetter(colIdx-1) + rIdx;
+}
+
+document.getElementById('formulaInput').addEventListener('keydown', e=>{
+  if(e.key==='Enter' && selectedCell){
+    commitCell(selectedCell.id, selectedCell.field, e.target.value);
+  }
+});
+document.getElementById('formulaInput').addEventListener('blur', e=>{
+  if(selectedCell) commitCell(selectedCell.id, selectedCell.field, e.target.value);
+});
+
+function editCellInline(cell){
+  if(currentRole!=='admin') return;
+  if(cell.querySelector('input')) return;
+  const oldVal = cell.textContent.trim();
+  cell.innerHTML = `<input type="text" value="${oldVal.replace(/"/g,'&quot;')}">`;
+  const inp = cell.querySelector('input');
+  inp.focus(); inp.select();
+  function done(){
+    commitCell(cell.dataset.id, cell.dataset.field, inp.value);
+  }
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ done(); } if(e.key==='Escape'){ cell.textContent = oldVal; } });
+  inp.addEventListener('blur', done);
+}
+
+let saveTimer=null;
+function commitCell(id, field, value){
+  const s = students[id]; if(!s) return;
+  let path;
+  if(['no','abs','nama','kelas','kamar'].includes(field)){
+    path = `students/${id}/${field}`;
+    const isNum = field==='no'||field==='abs';
+    db.ref(path).set(isNum ? (value===''?'':Number(value)||0) : value);
+  } else {
+    const [m, sub] = field.split('_');
+    path = `students/${id}/months/${m}/${sub}`;
+    const val = sub==='keterangan' ? value : (value===''?'':(isFinite(value)?Number(value):value));
+    db.ref(path).set(val);
+  }
+  toast('Tersimpan');
+}
+
+document.getElementById('btnAddRow').addEventListener('click', ()=>{
+  const id = db.ref('students').push().key;
+  const maxNo = Math.max(0, ...Object.values(students).map(s=>s.no||0));
+  db.ref('students/'+id).set({ no:maxNo+1, abs:1, nama:'Santri Baru', kelas:'-', kamar:'-', months: emptyMonths() })
+    .then(()=>toast('Baris ditambahkan'));
+});
+document.getElementById('btnDelRow').addEventListener('click', ()=>{
+  if(!selectedRowId){ toast('Pilih baris dulu', true); return; }
+  const nama = students[selectedRowId]? students[selectedRowId].nama : '';
+  if(!confirm(`Hapus data "${nama}"?`)) return;
+  db.ref('students/'+selectedRowId).remove().then(()=>{ toast('Baris dihapus'); selectedRowId=null; });
+});
+
+/* import excel */
+document.getElementById('btnImport').addEventListener('click', ()=>document.getElementById('fileImport').click());
+document.getElementById('fileImport').addEventListener('change', function(e){
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    try{
+      const wb = XLSX.read(ev.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      const dataRows = rows.slice(2).filter(r=>r[2] && String(r[2]).trim()!=='');
+      const updates = {};
+      dataRows.forEach(r=>{
+        const id = db.ref('students').push().key;
+        const months = emptyMonths();
+        let col = 5;
+        MONTHS.forEach(m=>{
+          months[m] = { jp: r[col]!==undefined?r[col]:'', keaktifan: r[col+1]!==undefined?r[col+1]:'', keterangan: r[col+2]!==undefined?r[col+2]:'' };
+          col += 3;
+        });
+        updates[id] = { no:r[0]||'', abs:r[1]||'', nama:r[2]||'', kelas:String(r[3]||''), kamar:r[4]||'', months };
+      });
+      if(!confirm(`Impor ${dataRows.length} baris data? Data lama tidak akan dihapus.`)) return;
+      db.ref('students').update(updates).then(()=>toast(`${dataRows.length} baris berhasil diimpor`));
+    }catch(err){
+      console.error(err);
+      toast('Gagal membaca file Excel', true);
+    }
+    e.target.value = '';
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+/* export excel */
+document.getElementById('btnExport').addEventListener('click', ()=>{
+  const headerTop = ['NO','ABS','NAMA','KELAS','KAMAR'];
+  const headerSub = ['','','','',''];
+  MONTHS.forEach(m=>{ headerTop.push(m,'',''); headerSub.push('JUMLAH PELANGGARAN','NILAI KEAKTIFAN','KETERANGAN'); });
+  const aoa = [headerTop, headerSub];
+  Object.values(students).sort((a,b)=>(a.no||0)-(b.no||0)).forEach(s=>{
+    const row = [s.no,s.abs,s.nama,s.kelas,s.kamar];
+    MONTHS.forEach(m=>{ const md=(s.months&&s.months[m])||emptyMonth(); row.push(md.jp,md.keaktifan,md.keterangan); });
+    aoa.push(row);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const merges = [];
+  let c = 5;
+  MONTHS.forEach(()=>{ merges.push({s:{r:0,c:c},e:{r:0,c:c+2}}); c+=3; });
+  ws['!merges'] = merges;
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'DATABASE');
+  XLSX.writeFile(wb, `laporan-bagian-bahasa-${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast('File Excel diunduh');
+});
+
+/* keyboard navigation on grid */
+document.addEventListener('keydown', e=>{
+  if(!document.getElementById('page-database').classList.contains('active')) return;
+  if(document.activeElement && document.activeElement.tagName==='INPUT') return;
+  if(!selectedCell) return;
+  const arrows = {ArrowUp:[-1,0], ArrowDown:[1,0], ArrowLeft:[0,-1], ArrowRight:[0,1]};
+  if(arrows[e.key]){
+    e.preventDefault();
+    const cell = selectedCell.el;
+    const row = cell.closest('tr');
+    const colIdx = [...row.children].indexOf(cell);
+    let targetRow = row;
+    const [dr,dc] = arrows[e.key];
+    if(dr!==0){ targetRow = dr>0 ? row.nextElementSibling : row.previousElementSibling; }
+    if(targetRow){
+      let targetCell = dc!==0 ? targetRow.children[colIdx+dc] : targetRow.children[colIdx];
+      if(targetCell && targetCell.classList.contains('xl-cell')) selectCell(targetCell);
+    }
+  }
+  if(e.key==='Enter'){ editCellInline(selectedCell.el); }
+});
+</script>
+</body>
+</html>
